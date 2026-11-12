@@ -1,0 +1,83 @@
+# Python build / package artifacts
+*.egg-info/
+*.egg
+dist/
+build/
+*.pyc
+*.pyo
+.mypy_cache/
+.pytype/
+.ruff_cache/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Secrets and local config
+.env
+.env.*
+.env.local
+*.env
+!.env.example
+
+# Datasets, checkpoints, runtime output (large; downloaded separately — see README)
+data/checkpoints/
+data/scene_datasets/
+data/grounded_sam/
+data/logs/
+data/datasets/R2R_VLNCE_v1-3_preprocessed/
+data/datasets/objectnav_hm3d_v2/
+data/datasets/hm3d_ovon/
+data/datasets/rxr/
+data/datasets/RxR/
+data/datasets/langmap/
+data/datasets/opennav-r2r/
+eval_data/
+# Keep curated subset files: data/datasets/stratified_samples/*.json
+
+logs/
+output/
+results/
+saved_rgb_images/
+# Per-round eval output: eval_data/<exp>/{stats,eval_results,rgb,logs}/.
+# Tens of GB per full round -- the numbers that matter get written up in
+# local analysis reports instead.
+videos/
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+
+# Compressed dataset shards
+*.json.gz
+
+# Vendored baselines / runtime-installed deps (installed separately — see README)
+baseline/
+GroundingDINO/
+
+# Logs and runtime artifacts from eval scripts
+eval_scripts/*.log
+*.wandb/
+
+# Caches
+.cache/
+.pytest_cache/
+.coverage
+htmlcov/
+*.prof
+__pycache__/
+
+# Local tools and installed dependencies
+.claude/
+.agents/
+.codex/
+third_party/
+
+# Local generated output
+*.out
+*.log
+data/datasets/episodes/

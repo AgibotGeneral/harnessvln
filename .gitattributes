@@ -1,0 +1,2 @@
+# Preserve exact context in upstream compatibility patches.
+*.patch -whitespace

@@ -1,0 +1,5 @@
+# Extra dependency for the NavDP local planner (used on stairs via --use-navdp).
+# Everything else it needs — torch, torchvision, opencv, matplotlib — already
+# comes from the project's top-level requirements.txt, so only diffusers is added
+# here (re-pinning torch would conflict with the cu128 build installed earlier).
+diffusers==0.33.1

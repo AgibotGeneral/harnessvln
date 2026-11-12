@@ -1,0 +1,119 @@
+diff --git a/habitat/sims/habitat_simulator/habitat_simulator.py b/habitat/sims/habitat_simulator/habitat_simulator.py
+index f9f276db0..365357735 100644
+--- a/habitat/sims/habitat_simulator/habitat_simulator.py
++++ b/habitat/sims/habitat_simulator/habitat_simulator.py
+@@ -7,6 +7,7 @@
+ from typing import (
+     TYPE_CHECKING,
+     Any,
++    Callable,
+     Dict,
+     List,
+     Optional,
+@@ -17,6 +18,7 @@ from typing import (
+ )
+ 
+ import numpy as np
++import magnum as mn
+ from gym import spaces
+ from gym.spaces.box import Box
+ from numpy import ndarray
+@@ -46,7 +48,10 @@ RGBSENSOR_DIMENSION = 3
+ 
+ 
+ def overwrite_config(
+-    config_from: Config, config_to: Any, ignore_keys: Optional[Set[str]] = None
++    config_from: Config,
++    config_to: Any,
++    ignore_keys: Optional[Set[str]] = None,
++    trans_dict: Optional[Dict[str, Callable]] = None,
+ ) -> None:
+     r"""Takes Habitat Lab config and Habitat-Sim config structures. Overwrites
+     Habitat-Sim config with Habitat Lab values, where a field name is present
+@@ -68,7 +73,11 @@ def overwrite_config(
+         low_attr = attr.lower()
+         if ignore_keys is None or low_attr not in ignore_keys:
+             if hasattr(config_to, low_attr):
+-                setattr(config_to, low_attr, if_config_to_lower(value))
++                if trans_dict is not None and low_attr in trans_dict:
++                    value = trans_dict[low_attr](value)
++                else:
++                    value = if_config_to_lower(value)
++                setattr(config_to, low_attr, value)
+             else:
+                 raise NameError(
+                     f"""{low_attr} is not found on habitat_sim but is found on habitat_lab config.
+@@ -253,12 +262,26 @@ class HabitatSim(habitat_sim.Simulator, Simulator):
+                 "sensors",
+                 "start_position",
+                 "start_rotation",
++                # Removed from AgentConfiguration in Habitat-Sim 0.3.x. These
++                # fields only affected the legacy physics-based agent controls;
++                # navigation actions in this project use discrete actuation.
++                "mass",
++                "linear_acceleration",
++                "angular_acceleration",
++                "linear_friction",
++                "angular_friction",
++                "coefficient_of_restitution",
+             },
+         )
+ 
+         sensor_specifications = []
+         for sensor in _sensor_suite.sensors.values():
++            # Habitat-Sim 0.3.x moved camera-only fields such as resolution and
++            # hfov from SensorSpec to CameraSensorSpec. Keep compatibility with
++            # the original 0.1.7 API through feature detection.
+             sim_sensor_cfg = habitat_sim.SensorSpec()
++            if not hasattr(sim_sensor_cfg, "resolution"):
++                sim_sensor_cfg = habitat_sim.CameraSensorSpec()
+             # TODO Handle configs for custom VisualSensors that might need
+             # their own ignore_keys. Maybe with special key / checking
+             # SensorType
+@@ -276,12 +299,19 @@ class HabitatSim(habitat_sim.Simulator, Simulator):
+                     "type",
+                     "width",
+                 },
++                trans_dict={
++                    "position": lambda value: mn.Vector3(value),
++                    "orientation": lambda value: mn.Vector3(value),
++                },
+             )
+             sim_sensor_cfg.uuid = sensor.uuid
+             sim_sensor_cfg.resolution = list(
+                 sensor.observation_space.shape[:2]
+             )
+-            sim_sensor_cfg.parameters["hfov"] = str(sensor.config.HFOV)
++            if hasattr(sim_sensor_cfg, "parameters"):
++                sim_sensor_cfg.parameters["hfov"] = str(sensor.config.HFOV)
++            else:
++                sim_sensor_cfg.hfov = float(sensor.config.HFOV)
+ 
+             # TODO(maksymets): Add configure method to Sensor API to avoid
+             # accessing child attributes through parent interface
+diff --git a/habitat/tasks/vln/vln.py b/habitat/tasks/vln/vln.py
+index eb7b624b1..cf9ef462a 100644
+--- a/habitat/tasks/vln/vln.py
++++ b/habitat/tasks/vln/vln.py
+@@ -57,7 +57,9 @@ class VLNEpisode(NavigationEpisode):
+ class InstructionSensor(Sensor):
+     def __init__(self, **kwargs):
+         self.uuid = "instruction"
+-        self.observation_space = spaces.Discrete(0)
++        # Newer Gym versions reject Discrete(0). The instruction sensor fills
++        # the actual observation at runtime, so an empty Dict is the placeholder.
++        self.observation_space = spaces.Dict()
+ 
+     def _get_uuid(self, *args: Any, **kwargs: Any) -> str:
+         return self.uuid
+diff --git a/habitat_baselines/rl/requirements.txt b/habitat_baselines/rl/requirements.txt
+index c79d56b5e..d560ac463 100644
+--- a/habitat_baselines/rl/requirements.txt
++++ b/habitat_baselines/rl/requirements.txt
+@@ -1,5 +1,5 @@
+ moviepy>=1.0.1
+ torch>=1.3.1
+ # full tensorflow required for tensorboard video support
+-tensorflow==1.13.1
++# tensorflow==1.13.1
+ tb-nightly
